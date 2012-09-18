@@ -53,8 +53,8 @@ if [[ $IS_WINDOWS_HOST == yes ]]; then
 	# create archives for packages?
 	CREATE_ARCHIVES=yes
 
-	# archive type may be one of: tgz|tbz|lzma|xz|7z|zip
-	ARCHIVE_TYPE=7z
+	# archive type may be one of: tar.gz|tgz|tar.bz2|tbz|tar.lzma|tar.xz|7z|zip
+	ARCHIVE_TYPE=tar.xz
 
 	# you want to use the you`r host compiler instead of building?
 	USE_HOST_COMPILER=no
@@ -66,7 +66,7 @@ if [[ $IS_WINDOWS_HOST == yes ]]; then
 	SHOW_ALL_STEPS=yes
 
 	# parallel make jobs count
-	BUILD_JOBS=1
+	BUILD_JOBS=3
 
 	# common link flags for configure
 	#LINK_TYPE="--disable-static --enable-shared"
@@ -102,8 +102,8 @@ elif [[ $IS_LINUX_HOST == yes ]]; then
 	# create archives for packages?
 	CREATE_ARCHIVES=yes
 
-	# archive type may be one of: tgz|tbz|lzma|xz|7z|zip
-	ARCHIVE_TYPE=7z
+	# archive type may be one of: tar.gz|tgz|tar.bz2|tbz|tar.lzma|tar.xz|7z|zip
+	ARCHIVE_TYPE=tar.xz
 
 	# you want to use the you`r host compiler instead of building?
 	USE_HOST_COMPILER=no
@@ -115,7 +115,7 @@ elif [[ $IS_LINUX_HOST == yes ]]; then
 	SHOW_ALL_STEPS=yes
 
 	# parallel make jobs count
-	BUILD_JOBS=4
+	BUILD_JOBS=3
 
 	# common link flags for configure
 	#LINK_TYPE="--disable-static --enable-shared"
@@ -152,8 +152,8 @@ elif [[ $IS_MACOSX_HOST == yes ]]; then
 	# create archives for packages?
 	CREATE_ARCHIVES=yes
 
-	# archive type may be one of: tgz|tbz|lzma|xz|7z|zip
-	ARCHIVE_TYPE=7z
+	# archive type may be one of: tar.gz|tgz|tar.bz2|tbz|tar.lzma|tar.xz|7z|zip
+	ARCHIVE_TYPE=tar.xz
 
 	# you want to use the you`r host compiler instead of building?
 	USE_HOST_COMPILER=no
@@ -165,7 +165,7 @@ elif [[ $IS_MACOSX_HOST == yes ]]; then
 	SHOW_ALL_STEPS=yes
 
 	# parallel make jobs count
-	BUILD_JOBS=4
+	BUILD_JOBS=3
 
 	# common link flags for configure
 	#LINK_TYPE="--disable-static --enable-shared"

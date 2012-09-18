@@ -269,10 +269,10 @@ function func_create_package {
 
 	# compress list of files
 	case $ARCHIVE_TYPE in
-		tgz) _command_str="tar -czf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
-		tbz) _command_str="tar -cjf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
-		lzma) _command_str="tar -cf ${7} -C$PREFIX --dereference --hard-dereference --use-compress-program=lzmae --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
-		xz) _command_str="tar -cf ${7} -C$PREFIX --dereference --hard-dereference --use-compress-program=xze --files-from=${8} > ${13} 2>&1 && touch ${14}";;
+		tgz | tar.gz) _command_str="tar -czf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
+		tbz | tar.bz2) _command_str="tar -cjf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
+		tar.lzma) _command_str="tar -cf --lzma ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
+		tar.xz) _command_str="tar -cJf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}";;
 		7z) _command_str="7za a -t7z -mx=9 -mfb=64 -md=64m -ms=on -w$PREFIX ${7} @${8} > ${13} 2>&1 && touch ${14}" ;;
 		zip) _command_str="7za a -tzip -mx=9 -mfb=64 -md=64m -w$PREFIX ${7} @${8} > ${13} 2>&1 && touch ${14}" ;;
 		*) echo "bad archive type \"$ARCHIVE_TYPE\". terminate."; exit 1 ;;
@@ -922,7 +922,7 @@ function func_processing {
    # archiving vars
    local _compressed_marker_filename=$DATA_MARKERS_DIR/$_pack_name-marker-compressed
    local _compress_log_filename=$LOGS_DIR/$_pack_name/compress.log
-   local _archive_filename=$PACKAGES_DIR/$ARCHIVE_NAME$ARCHIVE_EXT
+   local _archive_filename=$PACKAGES_DIR/$ARCHIVE_NAME.$ARCHIVE_TYPE
 
    if [[ $_pack_type == package ]]; then
       local _lib_ext=$SRC_TYPE
