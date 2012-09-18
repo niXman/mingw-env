@@ -66,25 +66,25 @@ if [[ $IS_WINDOWS_HOST == yes ]]; then
 	SHOW_ALL_STEPS=yes
 
 	# parallel make jobs count
-	BUILD_JOBS=4
+	BUILD_JOBS=1
 
 	# common link flags for configure
 	#LINK_TYPE="--disable-static --enable-shared"
 	LINK_TYPE="--enable-static --disable-shared"
 
 	# common CFLAGS
-	COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer -momit-leaf-frame-pointer \
+	COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer \
 		-I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common CXXFLAGS
-	COMMON_CXXFLAGS="-pipe -O2 -fomit-frame-pointer -momit-leaf-frame-pointer \
+	COMMON_CXXFLAGS="-pipe -O2 -fomit-frame-pointer \
 		-I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common CPPFLAGS
 	COMMON_CPPFLAGS="-pipe -I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common LDFLAGS
-	COMMON_LDFLAGS="-Wl,--large-address-aware -pipe -s -L$PREFIX_DIR/lib -L$PREFIX_DIR/$TARGET/lib"
+	COMMON_LDFLAGS="-pipe -s -L$PREFIX_DIR/lib -L$PREFIX_DIR/$TARGET/lib"
 elif [[ $IS_LINUX_HOST == yes ]]; then
 	WORK_DIR=/home/$USER/building
 	PREFIX_DIR=$WORK_DIR/usr/local
@@ -122,11 +122,11 @@ elif [[ $IS_LINUX_HOST == yes ]]; then
 	LINK_TYPE="--enable-static --disable-shared"
 
 	# common CFLAGS
-	COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer -momit-leaf-frame-pointer \
+	COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer \
 		-I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common CXXFLAGS
-	COMMON_CXXFLAGS="-pipe -O2 -fomit-frame-pointer -momit-leaf-frame-pointer \
+	COMMON_CXXFLAGS="-pipe -O2 -fomit-frame-pointer \
 		-I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common CPPFLAGS
@@ -172,11 +172,11 @@ elif [[ $IS_MACOSX_HOST == yes ]]; then
 	LINK_TYPE="--enable-static --disable-shared"
 
 	# common CFLAGS
-	COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer -momit-leaf-frame-pointer \
+	COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer \
 		-I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common CXXFLAGS
-	COMMON_CXXFLAGS="-pipe -O2 -fomit-frame-pointer -momit-leaf-frame-pointer \
+	COMMON_CXXFLAGS="-pipe -O2 -fomit-frame-pointer \
 		-I$PREFIX_DIR/include -I$PREFIX_DIR/$TARGET/include"
 
 	# common CPPFLAGS
