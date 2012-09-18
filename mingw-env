@@ -49,7 +49,7 @@ esac
 
 [[ $# > 0 && ${@:1} != --setup ]] && {
 	[[ -n $MINGW_ENV ]] && {
-		. $MINGW_ENV/config
+		. $MINGW_ENV/common/config.sh
 	}
 }
 
@@ -83,6 +83,7 @@ function func_make_environment {
 
 	# common variable
 	ROOT_DIR=$1
+	COMMON_DIR=$ROOT_DIR/common
 	RULES_DIR=$ROOT_DIR/rules
 	PATCHES_DIR=$ROOT_DIR/patches
 	TESTS_DIR=$ROOT_DIR/tests
@@ -116,8 +117,8 @@ function func_mingw_env_setup {
 	}
 
 	mkdir -p $1/data 					|| return 1
-	cp ./config $1						|| return 1
 	cp ./mingw-env $1					|| return 1
+	cp -r $COMMON_DIR $1 			|| return 1
 	cp -r $RULES_DIR $1				|| return 1
 	cp -r $PATCHES_DIR $1			|| return 1
 	cp -r $TESTS_DIR $1				|| return 1
@@ -1512,7 +1513,7 @@ case $1 in
 		}
 
 		# load config
-		. ./config
+		. common/config.sh
 
 		# prepare environment
 		func_make_environment "$PWD" ""
