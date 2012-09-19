@@ -42,9 +42,16 @@ PREFIX_DIR=/usr/local
 VIEWVER_NAME="c:/progra~1/notepad++/notepad++.exe"
 
 # architecture
-BUILD=i686-pc-mingw32
-HOST=i686-pc-mingw32
-TARGET=i686-pc-mingw32
+if [ -x "/mingw/bin/gcc" ]
+then
+	BUILD=`gcc -dumpmachine`
+	HOST=$BUILD
+	TARGET=$BUILD
+else
+	BUILD=i686-w64-mingw32
+	HOST=i686-w64-mingw32
+	TARGET=i686-w64-mingw32
+fi
 
 # common CFLAGS
 COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer \
