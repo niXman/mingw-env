@@ -39,7 +39,9 @@
 WORK_DIR=/home/$USER/building
 PREFIX_DIR=$WORK_DIR/usr/local
 
-VIEWVER_NAME="kate"
+LOGVIEWERS=(
+	"kate"
+)
 
 # architecture
 echo "need configure. terminate."; exit 1
