@@ -83,7 +83,7 @@ CONFIGURE_FLAGS=(
    CFLAGS=\"$COMMON_CFLAGS\"
    CXXFLAGS=\"$COMMON_CXXFLAGS\"
    CPPFLAGS=\"$COMMON_CPPFLAGS\"
-   LDFLAGS=\"$COMMON_LDFLAGS\"
+   LDFLAGS=\"$COMMON_LDFLAGS $( [[ "$TARGET" != x86_64* ]] && echo -Wl,--large-address-aware )\"
    # other flags
    --target=$TARGET
    --prefix=$PREFIX_DIR
