@@ -39,7 +39,11 @@
 WORK_DIR=/building
 PREFIX_DIR=/usr/local
 
-VIEWVER_NAME="c:/progra~1/notepad++/notepad++.exe"
+LOGVIEWERS=(
+	"c:/progra~1/notepad++/notepad++.exe"
+	"c:/progra~2/notepad++/notepad++.exe"
+	"c:/Windows/system32/notepad.exe"
+)
 
 # architecture
 if [ -x "/mingw/bin/gcc" ]
