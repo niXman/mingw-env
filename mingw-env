@@ -53,6 +53,14 @@ esac
 	}
 }
 
+VIEWVER_NAME=""
+func_find_logviewer \
+	LOGVIEWERS[@] \
+	VIEWVER_NAME
+[[ $? != 0 ]] && {
+	echo "can not find default logviewer."
+}
+
 # constants
 MINGW_ENV_VERSION="0.1.0"
 BUG_URL='http://sourceforge.net/projects/mingw-env/'
@@ -182,6 +190,23 @@ function func_restore_state {
 	[[ $1 != initial ]] && {
 		rm -f $DATA_STATE_DIR/$1.marker
 	}
+}
+
+# **************************************************************************
+
+function func_find_logviewer {
+	# $1 - array of viewers
+	# $2 - var name to pass viewer name
+	
+	local -a _arr=( "${!1}" )
+	for it in ${_arr[@]}; do
+		[[ -f "$it" ]] && {
+			eval "$2=\"$it\""
+			return 0;
+		}
+	done
+	
+	return 1
 }
 
 # **************************************************************************
