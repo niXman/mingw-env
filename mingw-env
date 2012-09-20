@@ -53,6 +53,8 @@ esac
 	}
 }
 
+source common/packaging.mfun
+
 VIEWVER_NAME=""
 func_find_logviewer \
 	LOGVIEWERS[@] \
@@ -217,7 +219,7 @@ function func_is_valid_package {
 	RULE_TYPE=""
 	RULE_NAME=""
 
-	. $RULES_DIR/$1.mpkg
+	. $1
 
 	[[ -z $RULE_TYPE || -z $RULE_NAME ]] && {
 		echo "package \"$1\" is not for using directly. terminate."
@@ -366,7 +368,7 @@ function func_create_common_dirs {
 function func_print_packages {
 	# $1 - substring
 
-	local list_files=( $(find $RULES_DIR -type f | sort) )
+	local list_files=( $(find $RULES_DIR -type f -name "*.$RULES_EXT" | sort) )
 	local packages=()
 	local max_element=0
 	local width=0
@@ -375,7 +377,7 @@ function func_print_packages {
 
 	for it in ${list_files[@]}; do
 		[[ -z $1 || $it == *$1* ]] && {
-			local temp_packages_name=$(echo $it | sed -e "s|$RULES_DIR/||;s|\\.mpkg||")
+			local temp_packages_name=$(echo $it | sed -e "s|$RULES_DIR/||;s|\\.$RULES_EXT||")
 			packages[${#packages[*]}]=$temp_packages_name
 			if ((${#temp_packages_name} > $max_element)); then
 				max_element=${#temp_packages_name}
@@ -388,7 +390,7 @@ function func_print_packages {
 	for it in ${packages[@]}; do
 		[[ -z $1 || $it == *$1* ]] && {
 			let width=$max_element-${#it}
-			. $RULES_DIR/${it}.mpkg
+			. $RULES_DIR/${it}.$RULES_EXT
 			if (( ${#DESCRIPTION} > $max_string_len )); then
 				OIFS="$IFS";IFS=$'\n';set -f
 				local strings=( $(echo "$DESCRIPTION" | fold -s -w $max_string_len) )
@@ -428,7 +430,7 @@ function func_print_installed_packages {
 	let max_string_len=($screen_width-$max_element)-6
 	for it in ${packages[@]}; do
 		let width=$max_element-${#it}
-		. $RULES_DIR/${it}.mpkg
+		. $RULES_DIR/${it}.$RULES_EXT
 		if (( ${#DESCRIPTION} > $max_string_len )); then
 			OIFS="$IFS";IFS=$'\n';set -f
 			local strings=( $(echo "$DESCRIPTION" | fold -s -w $max_string_len) )
@@ -455,7 +457,7 @@ function func_get_dependencies {
 	RULE_NAME=""
 	RULE_TYPE=""
 
-	. $RULES_DIR/$1.mpkg
+	. $RULES_DIR/$1.$RULES_EXT
 
 	[[ -n $RULE_NAME && -n $RULE_TYPE ]] && {
 		local local_deps=( ${DEPENDENCIES[@]} )
@@ -470,10 +472,10 @@ function func_get_dependencies {
 function func_get_dependent {
 	# $1 - (meta)package name
 
-	local list_files=( $(find $RULES_DIR -type f | sort) )
+	local list_files=( $(find $RULES_DIR -type f -name "*.$RULES_EXT"| sort) )
 
 	for it in ${list_files[@]} ; do
-		[[ $it != $RULES_DIR/$1.mpkg ]] && {
+		[[ $it != $1 ]] && {
 			DEPENDENCIES=()
 			RULE_NAME=""
 			RULE_TYPE=""
@@ -909,7 +911,7 @@ function func_processing {
    # $4 - show package name (yes|no)
    # $5 - mode (--download|--download-unpack|--trace)
 
-   if [[ ! -f $RULES_DIR/$1.mpkg ]]; then
+   if [[ ! -f $1 ]]; then
       echo "package \"$1\" is not exists. terminate."; exit 1
    fi
 
@@ -929,7 +931,7 @@ function func_processing {
    MAKE_CLEAN_FLAGS=();RUN_MAKE_DISTCLEAN="";MAKE_DISTCLEAN_FLAGS=()
    CREATE_ARCHIVE="";EXCLUDED_FROM_ARCHIVE="";ARCHIVE_NAME=""
 
-   . $RULES_DIR/$1.mpkg
+   . $1
 
    local _pack_type=$RULE_TYPE
    local _pack_name=$RULE_NAME
@@ -1777,8 +1779,9 @@ case $1 in
 			echo "done."
 		}
 
-		for it in "${@:2}"; do
-			[[ ! -f $RULES_DIR/$it.mpkg ]] && {
+		local _inst_list=(`func_set_pkg_list ${@:2}`)
+		for it in "${_inst_list[@]}"; do
+			[[ ! -f $it ]] && {
 				echo "package \"$it\" is not exists. terminate."
 				exit 1
 			}
@@ -1896,15 +1899,17 @@ case $1 in
 		echo "reinstall specified packages... "
 
 		# reinstall
-		for it in "${@:2}"; do
+		local _reinst_list=(`func_set_pkg_list ${@:2}`)
+		for it in "${_reinst_list[@]}"; do
 			# check if rule exists
-			[[ ! -f $RULES_DIR/$it.mpkg ]] && {
+			[[ ! -f $it ]] && {
 				echo "package \"$it\" is not exists. terminate."
 				exit 1
 			}
 			# check if package installed
-			[[ -z $(cat $INSTALLED_PACKAGES_FILENAME | grep -o $it) ]] && {
-				echo "package \"$it\" does not installed. terminate."
+			local _reinst_pkg=`basename ${it} .$RULES_EXT`
+			[[ -z $(cat $INSTALLED_PACKAGES_FILENAME | grep -o $_reinst_pkg) ]] && {
+				echo "package \"$_reinst_pkg\" does not installed. terminate."
 				exit 1
 			}
 			func_processing "$it" "no" "uninstall" "yes" ""
@@ -1975,7 +1980,7 @@ case $1 in
 		func_create_common_dirs
 
 		for it in "${@:2}"; do
-			[[ ! -f $RULES_DIR/$it.mpkg ]] && {
+			[[ ! -f $RULES_DIR/$it.$RULES_EXT ]] && {
 				echo "package \"$it\" is not exists. terminate."
 				exit 1
 			}
@@ -2012,7 +2017,7 @@ case $1 in
 		func_create_common_dirs
 
 		for it in "${@:2}"; do
-			[[ ! -f $RULES_DIR/$it.mpkg ]] && {
+			[[ ! -f $RULES_DIR/$it.$RULES_EXT ]] && {
 				echo "package \"$it\" is not exists. terminate."
 				exit 1
 			}
