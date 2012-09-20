@@ -1,0 +1,224 @@
+##
+# The BSD 3-Clause License. http://www.opensource.org/licenses/BSD-3-Clause
+#
+# This file is part of mingw-env project.
+# Copyright (c) 2011,2012, by niXman (i dotty nixman doggy gmail dotty com)
+# All rights reserved.
+# Project: mingw-env ( http://sourceforge.net/projects/mingw-env/ )
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# - Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+# - Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the distribution.
+# - Neither the name of the 'mingw-env' nor the names of its contributors may
+#     be used to endorse or promote products derived from this software
+#     without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+# USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+# **************************************************************************
+# **************************************************************************
+# **************************************************************************
+
+# Function: mcvs_clean
+# Usage: [list of dirs]
+# Description:
+# Remove CVS directories recursiveley.  Useful when a source tarball contains
+# internal CVS directories.  Defaults to $PWD.
+mcvs_clean() {
+	[[ -z $* ]] && set -- .
+	find "$@" -type d -name 'CVS' -prune -print0 | xargs -0 rm -rf
+	find "$@" -type f -name '.cvs*' -print0 | xargs -0 rm -rf
+}
+
+# Function: msvn_clean
+# Usage: [list of dirs]
+# Description:
+# Remove .svn directories recursiveley.  Useful when a source tarball contains
+# internal Subversion directories.  Defaults to $PWD.
+msvn_clean() {
+	[[ -z $* ]] && set -- .
+	find "$@" -type d -name '.svn' -prune -print0 | xargs -0 rm -rf
+}
+
+# Function: mstack_push
+# Usage: <stack> [items to push]
+# Description:
+# Push any number of items onto the specified stack.  Pick a name that
+# is a valid variable (i.e. stick to alphanumerics), and push as many
+# items as you like onto the stack at once.
+#
+# The following code snippet will echo 5, then 4, then 3, then ...
+# CODE
+#		mstack_push mystack 1 2 3 4 5
+#		while mstack_pop mystack i ; do
+#			echo "${i}"
+#		done
+# CODE
+mstack_push() {
+	[[ $# -eq 0 ]] && die "mstack_push: incorrect # of arguments"
+	local _stack_name="__MSTACK_$1__" ; shift
+	eval ${_stack_name}+=\( \"\$@\" \)
+}
+
+# Function: mstack_pop
+# Usage: <stack> [variable]
+# Description:
+# Pop a single item off the specified stack.  If a variable is specified,
+# the popped item is stored there.  If no more items are available, return
+# 1, else return 0.  See mstack_push for more info.
+mstack_pop() {
+	[[ $# -eq 0 || $# -gt 2 ]] && {
+		echo "mstack_pop: incorrect # of arguments"
+		exit 1
+	}
+
+	# We use the fugly __mstack_xxx var names to avoid collision with
+	# passing back the return value.  If we used "local i" and the
+	# caller ran `mstack_pop ... i`, we'd end up setting the local
+	# copy of "i" rather than the caller's copy.  The __mstack_xxx
+	# garbage is preferable to using $1/$2 everywhere as that is a
+	# bit harder to read.
+	local __mstack_name="__MSTACK_$1__" ; shift
+	local __mstack_retvar=$1 ; shift
+	eval local __mstack_i=\${#${__mstack_name}\[@\]}
+	# Don't warn -- let the caller interpret this as a failure
+	# or as normal behavior (akin to `shift`)
+	[[ $(( --__mstack_i )) -eq -1 ]] && return 1
+
+	if [[ -n ${__mstack_retvar} ]] ; then
+		eval ${__mstack_retvar}=\"\${${__mstack_name}\[${__mstack_i}\]}\"
+	fi
+	eval unset ${__mstack_name}\[${__mstack_i}\]
+}
+
+# Function: mshopts_push
+# Usage: [options to `set` or `shopt`]
+# Description:
+# Often times code will want to enable a shell option to change code behavior.
+# Since changing shell options can easily break other pieces of code (which
+# assume the default state), mshopts_push is used to (1) push the current shell
+# options onto a stack and (2) pass the specified arguments to set.
+#
+# If the first argument is '-s' or '-u', we assume you want to call `shopt`
+# rather than `set` as there are some options only available via that.
+#
+# A common example is to disable shell globbing so that special meaning/care
+# may be used with variables/arguments to custom functions.  That would be:
+# CODE
+#		mshopts_push -s noglob
+#		for x in ${foo} ; do
+#			if ...some check... ; then
+#				mshopts_pop
+#				return 0
+#			fi
+#		done
+#		mshopts_pop
+# CODE
+mshopts_push() {
+	if [[ $1 == -[su] ]] ; then
+		mstack_push mshopts "$(shopt -p)"
+		[[ $# -eq 0 ]] && return 0
+		shopt "$@" || die "${FUNCNAME}: bad options to shopt: $*"
+	else
+		mstack_push mshopts $-
+		[[ $# -eq 0 ]] && return 0
+		set "$@" || die "${FUNCNAME}: bad options to set: $*"
+	fi
+}
+
+# Function: mshopts_pop
+# Usage:
+# Description:
+# Restore the shell options to the state saved with the corresponding
+# mshopts_push call.  See that function for more details.
+mshopts_pop() {
+	local s
+	mstack_pop mshopts s || die "${FUNCNAME}: unbalanced push"
+	if [[ ${s} == "shopt -"* ]] ; then
+		eval "${s}" || die "${FUNCNAME}: sanity: invalid shopt options: ${s}"
+	else
+		set +$-     || die "${FUNCNAME}: sanity: invalid shell settings: $-"
+		set -${s}   || die "${FUNCNAME}: sanity: unable to restore saved shell settings: ${s}"
+	fi
+}
+
+# Function: eumask_push
+# Usage: <new umask>
+# Description:
+# Set the umask to the new value specified while saving the previous
+# value onto a stack.  Useful for temporarily changing the umask.
+eumask_push() {
+	mstack_push eumask "$(umask)"
+	umask "$@" || die "${FUNCNAME}: bad options to umask: $*"
+}
+
+# Function: eumask_pop
+# Usage:
+# Description:
+# Restore the previous umask state.
+eumask_pop() {
+	[[ $# -eq 0 ]] || die "${FUNCNAME}: we take no options"
+	local s
+	mstack_pop eumask s || die "${FUNCNAME}: unbalanced push"
+	umask ${s} || die "${FUNCNAME}: sanity: could not restore umask: ${s}"
+}
+
+# Function: mdos2unix
+# Usage: <file> [more files ...]
+# Description:
+# A handy replacement for dos2unix, recode, fixdos, etc...  This allows you
+# to remove all of these text utilities from DEPEND variables because this
+# is a script based solution.  Just give it a list of files to convert and
+# they will all be changed from the DOS CRLF format to the UNIX LF format.
+mdos2unix() {
+	[[ $# -eq 0 ]] && return 0
+	sed -i 's/\r$//' -- "$@" || exit 1
+}
+
+# Function: path_exists
+# Usage: [-a|-o] <paths>
+# Description:
+# Check if the specified paths exist.  Works for all types of paths
+# (files/dirs/etc...).  The -a and -o flags control the requirements
+# of the paths.  They correspond to "and" and "or" logic.  So the -a
+# flag means all the paths must exist while the -o flag means at least
+# one of the paths must exist.  The default behavior is "and".  If no
+# paths are specified, then the return value is "false".
+path_exists() {
+	local opt=$1
+	[[ ${opt} == -[ao] ]] && shift || opt="-a"
+
+	# no paths -> return false
+	# same behavior as: [[ -e "" ]]
+	[[ $# -eq 0 ]] && return 1
+
+	local p r=0
+	for p in "$@" ; do
+		[[ -e ${p} ]]
+		: $(( r += $? ))
+	done
+
+	case ${opt} in
+		-a) return $(( r != 0 )) ;;
+		-o) return $(( r == $# )) ;;
+	esac
+}
+
+# **************************************************************************
+# **************************************************************************
+# **************************************************************************

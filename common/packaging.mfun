@@ -1,10 +1,8 @@
-#!/bin/bash
-
-#
+##
 # The BSD 3-Clause License. http://www.opensource.org/licenses/BSD-3-Clause
 #
 # This file is part of mingw-env project.
-# Copyright (c) 2011,2012, niXman (i dotty nixman doggy gmail dotty com)
+# Copyright (c) 2011,2012, by niXman (i dotty nixman doggy gmail dotty com)
 # All rights reserved.
 # Project: mingw-env ( http://sourceforge.net/projects/mingw-env/ )
 #
@@ -36,57 +34,67 @@
 # **************************************************************************
 # **************************************************************************
 
-# you`r prefered version
-DEFAULT_MINGW_VERSION=mingw-4.6.2
+source version.mfun
 
-# extension for 
-RULES_EXT=mpkg
+function func_set_pkg_list {
+	# $1 - user input list
+	# $2 - output pkg list
+	
+	local -a _input_list=( "${!1}" )
+	local -a _output_list=()
+	local _max_version
+	local _filename
+	local _curr_version
+	local _curr_file	
 
-# create archives for packages?
-CREATE_ARCHIVES=yes
+	[[ ${#_input_list[@]} == 0 ]] && echo "Empty list"
+	
+	for it in "${_input_list[@]}"; do
+		local _list_files=()
+		if [ ! -d $RULES_DIR/${it} ]
+		then
+			_list_files=( $(find $RULES_DIR -type f -name "${it}.$RULES_EXT") )
+			if [ ${#_list_files[@]} == 0 ]
+			then
+				echo "Package ${it} not found."
+				exit 1
+			else
+				_output_list=("${_output_list[@]}" "${_list_files[@]:0:1}")
+			fi
+		else
+			_list_files=( $(find $RULES_DIR/${it} -type f -name "*.$RULES_EXT") )
+			_max_version=""
+			if [ ${#_list_files[@]} == 0 ]
+			then
+				echo "Packages not found in $RULES_DIR/${it}."
+				exit 1
+			else
+				for it1 in "${_list_files[@]}"; do
+					if [ "$_max_version" ]
+					then
+						_curr_file=`basename ${it1} .$RULES_EXT`
+						_curr_version=${_curr_file#$it-}
+						version_compare "${_max_version}" "${_curr_version}"
+						
+						[[ $? == 1 ]] && {
+							_filename=${it1}
+							_max_version=$_curr_version
+						}
+					else 
+						_filename=`basename ${it1} .$RULES_EXT`
+						_max_version=${_filename#$it-}
+						_filename=${it1}
+						_curr_version=$_max_version
+					fi
 
-# archive type may be one of: tar.gz|tgz|tar.bz2|tbz|tar.lzma|tar.xz|7z|zip
-ARCHIVE_TYPE=tar.xz
-
-# you want to use the you`r host compiler instead of building?
-USE_HOST_COMPILER=no
-
-# dump all commands for debug mode?
-DUMP_COMMANDS=yes
-
-# show all steps for packages?
-SHOW_ALL_STEPS=yes
-
-# parallel make jobs count
-BUILD_JOBS=3
-
-# common link flags for configure
-#LINK_TYPE="--disable-static --enable-shared"
-LINK_TYPE="--enable-static --disable-shared"
-
-
-if [[ $IS_WINDOWS_HOST == yes ]]; then
-	. ./config-win.sh
-elif [[ $IS_LINUX_HOST == yes ]]; then
-	. ./config-nix.sh
-elif [[ $IS_MACOSX_HOST == yes ]]; then
-	. ./config-osx.sh
-else
-	echo "bad OS name \"$OSTYPE\". terminate."
-	exit 1
-fi
-
-# **************************************************************************
-
-SHOW_LOG_ON_DOWNLOAD_ERROR=yes
-SHOW_LOG_ON_UNPACK_ERROR=yes
-SHOW_LOG_ON_PATCH_ERROR=yes
-SHOW_LOG_ON_EXEC_ERROR=yes
-SHOW_LOG_ON_CONFIGURE_ERROR=yes
-SHOW_LOG_ON_MAKE_ERROR=yes
-SHOW_LOG_ON_INSTALL_ERROR=yes
-SHOW_LOG_ON_CLEAN_ERROR=yes
-SHOW_LOG_ON_COMPRESS_ERROR=yes
+				done
+				_output_list=("${_output_list[@]}" "${_filename}")
+			fi
+		fi
+	done
+	
+	echo "${_output_list[@]}"
+}
 
 # **************************************************************************
 # **************************************************************************
