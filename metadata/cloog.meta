@@ -1,0 +1,5 @@
+# description of the library
+DESCRIPTION="CLooG is a free software and library to generate code for scanning Z-polyhedra."
+
+# homepage of the library
+HOMEPAGE="http://www.cloog.org/"

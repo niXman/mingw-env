@@ -1,0 +1,5 @@
+# description of the library
+DESCRIPTION="zlib is a software library used for data compression."
+
+# homepage of the library
+HOMEPAGE="http://www.zlib.net/"

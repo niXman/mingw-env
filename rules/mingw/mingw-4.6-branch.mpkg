@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=metapackage
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # list of requirements separated by space
 DEPENDENCIES=(
    binutils-2.22.52
@@ -49,9 +46,6 @@ DEPENDENCIES=(
    gdb-7.4
    make-trunk
 )
-
-# description of the library
-DESCRIPTION="GCC port for Windows. GCC version 4.6-branch"
 
 # final commands which will be executed
 FINAL_COMMANDS=(

@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: svn, hg, git
 SRC_TYPE=.tar.bz2
@@ -60,11 +57,6 @@ DEPENDENCIES=(
    dlfcn-win32-trunk
    libffi-3.0.10
 )
-
-# description of the library
-DESCRIPTION="Python is a programming language that lets you work more quickly \
-and integrate your systems more effectively. You can learn to use Python and \
-see almost immediate gains in productivity and lower maintenance costs."
 
 # list of patches separated by space
 APPLYING_PATCHES=(

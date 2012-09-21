@@ -1,0 +1,6 @@
+# description of the library
+DESCRIPTION="The libffi library is useful to anyone trying to build a \
+bridge between interpreted and natively compiled code."
+
+# homepage of the library
+HOMEPAGE="http://sourceware.org/libffi/"

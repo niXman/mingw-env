@@ -1,5 +1,3 @@
-#!/bin/bash
-
 #
 # The BSD 3-Clause License. http://www.opensource.org/licenses/BSD-3-Clause
 #
@@ -36,18 +34,26 @@
 # **************************************************************************
 # **************************************************************************
 
-WORK_DIR=/home/$USER/building
-PREFIX_DIR=$WORK_DIR/usr/local
+WORK_DIR=/building
+PREFIX_DIR=/usr/local
 
 LOGVIEWERS=(
-	"kate"
+	"c:/progra~1/notepad++/notepad++.exe"
+	"c:/progra~2/notepad++/notepad++.exe"
+	"c:/Windows/system32/notepad.exe"
 )
 
 # architecture
-echo "need configure. terminate."; exit 1
-BUILD=i686-linux-gnu
-HOST=i686-linux-gnu
-TARGET=i686-linux-gnu
+if [ -x "/mingw/bin/gcc" ]
+then
+	BUILD=`gcc -dumpmachine`
+	HOST=$BUILD
+	TARGET=$BUILD
+else
+	BUILD=i686-w64-mingw32
+	HOST=i686-w64-mingw32
+	TARGET=i686-w64-mingw32
+fi
 
 # common CFLAGS
 COMMON_CFLAGS="-pipe -O2 -fomit-frame-pointer \

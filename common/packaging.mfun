@@ -34,11 +34,52 @@
 # **************************************************************************
 # **************************************************************************
 
-source version.mfun
+# Find the first set from the list viewer 
+function func_find_logviewer {
+	# $1 - array of viewers
+	# $2 - var name to pass viewer name
+	
+	local -a _arr=( "${!1}" )
+	for it in ${_arr[@]}; do
+		[[ -f "$it" ]] && {
+			eval "$2=\"$it\""
+			return 0;
+		}
+	done
+	
+	return 1
+}
 
+# **************************************************************************
+
+# set variables for current package
+function func_set_pkg_env {
+	# $1 - full package filename
+	
+	# name of the package
+	RULE_NAME=$(basename $1 .$RULES_EXT)
+	
+	# name of the program
+	local _dir=$(dirname $1)
+	PROG_NAME=${_dir#$RULES_DIR/}
+	
+	# version of the program
+	PROG_VER=${RULE_NAME#$PROG_NAME-}
+	
+	# sources directory name
+	SRC_DIR=$RULE_NAME
+	
+	# build directory name
+	BUILD_DIR=$RULE_NAME
+	
+	source $METADATA_DIR/$PROG_NAME.$METADATA_EXT
+}
+
+# **************************************************************************
+
+# set full packages name list
 function func_set_pkg_list {
 	# $1 - user input list
-	# $2 - output pkg list
 	
 	local -a _input_list=( "${!1}" )
 	local -a _output_list=()
@@ -46,11 +87,10 @@ function func_set_pkg_list {
 	local _filename
 	local _curr_version
 	local _curr_file	
+	local _list_files=()
 
-	[[ ${#_input_list[@]} == 0 ]] && echo "Empty list"
-	
+	[[ ${#_input_list[@]} == 0 ]] && exit 1
 	for it in "${_input_list[@]}"; do
-		local _list_files=()
 		if [ ! -d $RULES_DIR/${it} ]
 		then
 			_list_files=( $(find $RULES_DIR -type f -name "${it}.$RULES_EXT") )
@@ -97,5 +137,1257 @@ function func_set_pkg_list {
 }
 
 # **************************************************************************
+
+# print list of packages
+function func_print_packages {
+	# $1 - substring
+
+	local list_files=( $(find $RULES_DIR -type f -name "*$1*.$RULES_EXT" | sort) )
+	local packages=()
+	local max_element=0
+	local width=0
+	local screen_width=0
+	let screen_width=$(stty size | sed 's/[^\w]* //')
+
+	for it in ${list_files[@]}; do
+		[[ -z $1 ]] && {
+			local temp_package_name=`basename ${it} .$RULES_EXT`
+			#local temp_package_name=$(echo $it | sed -e "s|$RULES_DIR/||;s|\\.$RULES_EXT||")
+			#packages[${#packages[*]}]=$temp_package_name
+			if ((${#temp_package_name} > $max_element)); then
+				max_element=${#temp_package_name}
+			fi
+		}
+	done
+	((max_element++))
+
+	let max_string_len=($screen_width-$max_element)-6
+	for it in ${list_files[@]}; do
+		[[ -z $1 ]] && {
+			local temp_package_name=`basename ${it} .$RULES_EXT`
+			let width=$max_element-${#temp_package_name}
+			func_set_pkg_env ${it}
+			. ${it}
+			if (( ${#DESCRIPTION} > $max_string_len )); then
+				OIFS="$IFS";IFS=$'\n';set -f
+				local strings=( $(echo "$DESCRIPTION" | fold -s -w $max_string_len) )
+				
+				set +f;IFS="$OIFS"
+
+				printf "\E[32;40m%s\E[37;40m   %*s%s%s\n" "${temp_package_name}" $width "#" " ${strings[@]:0:1}"
+				for str in "${strings[@]:1}"; do
+					let tmp_width=($width+${#temp_package_name})-1
+					printf "\E[32;40m%s\E[37;40m   %*s%s%s\n" " " $tmp_width "#" " $str"
+				done
+				echo
+			else
+				printf "\E[32;40m%s\E[37;40m   %*s%s%s\n" "${temp_package_name}" $width "#" " $DESCRIPTION"
+			fi
+		}
+	done
+}
+
+# **************************************************************************
+
+# print list of installed packages
+function func_print_installed_packages {
+	OIFS="$IFS";IFS=$'\n';set -f
+	local packages=( $(< $INSTALLED_PACKAGES_FILENAME) )
+	set +f;IFS="$OIFS"
+	local max_element=0
+	local screen_width=0
+	let screen_width=$(stty size | sed 's/[^\w]* //')
+
+	for it in ${packages[@]}; do
+		if ((${#it} > $max_element)); then
+			max_element=${#it}
+		fi
+	done
+	((max_element++))
+
+	let max_string_len=($screen_width-$max_element)-6
+	for it in ${packages[@]}; do
+		let width=$max_element-${#it}
+		. $RULES_DIR/${it}.$RULES_EXT
+		if (( ${#DESCRIPTION} > $max_string_len )); then
+			OIFS="$IFS";IFS=$'\n';set -f
+			local strings=( $(echo "$DESCRIPTION" | fold -s -w $max_string_len) )
+			set +f;IFS="$OIFS"
+
+			printf "\E[32;40m%s\E[37;40m   %*s%s%s\n" "${it}" $width "#" " ${strings[@]:0:1}"
+			for str in "${strings[@]:1}"; do
+				let tmp_width=($width+${#it})-1
+				printf "\E[32;40m%s\E[37;40m   %*s%s%s\n" " " $tmp_width "#" " $str"
+			done
+			echo
+		else
+			printf "\E[32;40m%s\E[37;40m   %*s%s%s\n" "${it}" $width "#" " $DESCRIPTION"
+		fi
+	done
+}
+
+# **************************************************************************
+
+function func_get_dependencies {
+	# $1 - (meta)package name
+
+	DEPENDENCIES=()
+	RULE_NAME=""
+	RULE_TYPE=""
+
+	. $RULES_DIR/$1.$RULES_EXT
+
+	[[ -n $RULE_NAME && -n $RULE_TYPE ]] && {
+		local local_deps=( ${DEPENDENCIES[@]} )
+		deps_list=( ${deps_list[@]} ${DEPENDENCIES[@]} )
+
+		for it in ${local_deps[@]} ; do
+			func_get_dependencies $it
+		done
+	}
+}
+
+function func_get_dependent {
+	# $1 - (meta)package name
+
+	local list_files=( $(find $RULES_DIR -type f -name "*.$RULES_EXT"| sort) )
+
+	for it in ${list_files[@]} ; do
+		[[ $it != $1 ]] && {
+			DEPENDENCIES=()
+			RULE_NAME=""
+			RULE_TYPE=""
+
+			. $it
+
+			[[ -n $RULE_NAME && -n $RULE_TYPE ]] && {
+				for j in ${DEPENDENCIES[@]} ; do
+					[[ $j == $1 ]] && {
+						tmp_list=( ${tmp_list[@]} $RULE_NAME)
+					}
+				done
+			}
+		}
+	done
+}
+
+function func_get_dependent_for_installed {
+	# $1 - (meta)package name
+	# $2 - list of packages for uninstall
+
+	OIFS="$IFS";IFS=$'\n';set -f
+	local installed=( $(< $INSTALLED_PACKAGES_FILENAME) )
+	set +f;IFS="$OIFS"
+	deps_list=()
+	declare -a for_uninstall=( "${!2}" )
+
+	func_get_dependent $1
+
+	[[ ${#for_uninstall[@]} > 0 ]] && {
+		tmp_list=( ${tmp_list[@]} ${for_uninstall[@]} )
+	}
+
+	for i in ${tmp_list[@]} ; do
+		for j in ${installed[@]} ; do
+			[[ $i == $j ]] && {
+				deps_list=( ${deps_list[@]} $j )
+			}
+		done
+	done
+}
+
+# **************************************************************************
+
+# download the sources
+function func_download {
+	# $1 - (meta)package name
+	# $2 - sources type: .tar.gz, .tar.bz2 e.t.c...
+	#      if library get from a sources repository, choose it's type: cvs, svn, hg, git
+	# $3 - URL
+	# $4 - marker file name
+	# $5 - url file name
+	# $6 - log file name
+	_function_result=0
+
+	[[ ! -f $4 ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# download..."
+		}
+		[[ $2 == cvs || $2 == svn || $2 == hg || $2 == git ]] && {
+			local LIB_NAME=$SRCS_DIR/$1
+		} || {
+			local LIB_NAME=$SRCS_DIR/$1$2
+		}
+
+		echo "${3}" > $5
+
+		if [[ $2 == cvs ]]; then
+			( cd $SRCS_DIR && eval ${3} > $6 2>&1 )
+		elif [[ $2 == svn ]]; then
+			svn co $3 $LIB_NAME > $6 2>&1
+		elif [[ $2 == hg ]]; then
+			hg clone $3 $LIB_NAME > $6 2>&1
+		elif [[ $2 == git ]]; then
+			git clone $3 $LIB_NAME > $6 2>&1
+		else
+			[[ ! -f $4 && -f $LIB_NAME ]] && rm -f $LIB_NAME
+			wget --tries=10 --timeout=2 --wait=5 $3 -O $LIB_NAME > $6 2>&1
+		fi
+		_function_result=$?
+
+		[[ $_function_result == 0 ]] && {
+			touch $4
+			[[ $SHOW_ALL_STEPS == yes ]] && echo "done."
+		} || {
+			[[ $SHOW_ALL_STEPS == yes ]] && echo "error!"
+			return $_function_result
+		}
+	} || {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# downloaded"
+		}
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# uncompress sources
+function func_uncompress {
+	# $1 - library name
+	# $2 - library ext
+	# $3 - marker file name
+	# $4 - log file name
+
+	[[ $2 == "cvs" ]] && {
+		echo "CVS repositories are is not implemented.\n"
+		exit 1
+	}
+
+	_function_result=0
+
+	local ARCHIVE_FILE_NAME=$SRCS_DIR/$1$2
+
+	[[ $2 == ".tar" || $2 == ".tar.gz" || $2 == ".tar.bz2" || $2 == ".tar.lzma" \
+		|| $2 == ".tar.xz" || $2 == ".zip" ]] && {
+		[[ ! -f ${3} ]] && {
+			[[ $SHOW_ALL_STEPS == yes ]] && {
+				printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# unpack..."
+			}
+			if [[ $2 == ".tar" ]]; then
+				tar -xf $ARCHIVE_FILE_NAME -C $SRCS_DIR > ${4} 2>&1
+			elif [[ $2 == ".tar.gz" ]]; then
+				tar -xvf $ARCHIVE_FILE_NAME -C $SRCS_DIR > ${4} 2>&1
+			elif [[ $2 == ".tar.bz2" ]]; then
+				tar -xvf $ARCHIVE_FILE_NAME -C $SRCS_DIR > ${4} 2>&1
+			elif [[ $2 == ".tar.lzma" ]]; then
+				tar -xvJf $ARCHIVE_FILE_NAME -C $SRCS_DIR > ${4} 2>&1
+			elif [[ $2 == ".zip" ]]; then
+				unzip $ARCHIVE_FILE_NAME -d $SRCS_DIR > ${4} 2>&1
+			else
+				echo "error. bad archive type: $fileext"
+				_function_result=1
+				return $_function_result
+			fi
+
+			_function_result=$?
+			[[ $_function_result == 0 ]] && {
+				touch $3
+				[[ $SHOW_ALL_STEPS == yes ]] && echo "done."
+			} || {
+				[[ $SHOW_ALL_STEPS == yes ]] && echo "error!"
+				return $_function_result
+			}
+		} || {
+			[[ $SHOW_ALL_STEPS == yes ]] && {
+				printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# unpacked"
+			}
+		}
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# apply list of patches
+function func_apply_patches {
+	# $1 - (meta)package name
+	# $2 - patches list
+	declare -a _patches_list=( "${!2}" )
+
+	_function_result=0
+
+	_patch_index=${#_patches_list[@]}
+	((_patch_index--))
+	[[ -f $DATA_MARKERS_DIR/${1}-marker-patch-${_patch_index} ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# patched"
+		}
+		return $_function_result
+	}
+	_patch_index=0
+
+	[[ ${#_patches_list[@]} > 0 ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# patching..."
+		}
+	}
+
+	for it in "${_patches_list[@]}" ; do
+		local _patch_marker_name=$DATA_MARKERS_DIR/${1}-marker-patch-${_patch_index}
+		[[ ! -f $_patch_marker_name ]] && {
+			local _patch_log_name=$LOGS_DIR/$1/patch-$_patch_index.log
+
+			[[ $DUMP_COMMANDS == yes ]] && {
+				echo "patch -p1 < $PATCHES_DIR/${it}" > $LOGS_DIR/$1/patch-$_patch_index.dump
+			}
+
+			(cd $SRCS_DIR/$1 && patch -p1 < "$PATCHES_DIR/${it}" > $_patch_log_name 2>&1)
+			_function_result=$?
+			[[ $_function_result == 0 ]] && {
+				touch $_patch_marker_name
+			} || {
+				_function_result=1
+				break
+			}
+		}
+
+		((_patch_index++))
+	done
+
+	[[ $SHOW_ALL_STEPS == yes ]] && {
+		[[ $_function_result == 0 ]] && echo "done." || echo "error!"
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# execute the list of commands
+function func_execute {
+	# $1 - (meta)package name
+	# $2 - message
+	# $3 - marker ID
+	# $4 - commands list
+
+	declare -a _commands=( "${!4}" )
+	_function_result=0
+
+	_cmd_index=${#_commands[@]}
+	((_cmd_index--))
+
+	[[ -n $3 ]] && {
+		local _cmd_marker_name=$DATA_MARKERS_DIR/$1-marker-$3-$_cmd_index
+	} || {
+		local _cmd_marker_name=$DATA_MARKERS_DIR/$1-marker-$_cmd_index
+	}
+
+	[[ -f $_cmd_marker_name ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# executed"
+		}
+		return $_function_result
+	}
+
+	[[ ${#_commands[@]} > 0 ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# ${2}..."
+		}
+	}
+
+	[[ ! -d $BUILDS_DIR/$1 ]] && {
+		echo; echo "directory \"$BUILDS_DIR/$1\" does not exists. terminate."
+		_function_result=1
+		return $_function_result
+	}
+
+	_cmd_index=0
+	for it in "${_commands[@]}"; do
+		[[ -n $3 ]] && {
+			local _cmd_marker_name=$DATA_MARKERS_DIR/$1-marker-$3-$_cmd_index
+			local _cmd_log_name=$LOGS_DIR/$1/$3-$_cmd_index.log
+			local _cmd_dump_name=$LOGS_DIR/$1/$3-$_cmd_index.dump
+		} || {
+			local _cmd_marker_name=$DATA_MARKERS_DIR/$1-marker-$_cmd_index
+			local _cmd_log_name=$LOGS_DIR/$1/$_cmd_index.log
+			local _cmd_dump_name=$LOGS_DIR/$1/$_cmd_index.dump
+		}
+
+		[[ $DUMP_COMMANDS == yes ]] && {
+			echo "${it}" > $_cmd_dump_name
+		}
+
+		[[ ! -f $_cmd_marker_name ]] && {
+			(cd $BUILDS_DIR/$1 && eval ${it} > $_cmd_log_name 2>&1)
+			_function_result=$?
+			[[ $_function_result != 0 ]] && {
+				[[ $SHOW_ALL_STEPS == yes ]] && echo "error!"
+				return $_function_result
+			} || {
+				touch $_cmd_marker_name
+			}
+		}
+
+		((_cmd_index++))
+	done
+
+	[[ $_cmd_index == ${#_commands[@]} ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && echo "done."
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# generate configure
+function func_generate_configure {
+	# $1 - (meta)package name
+	# $2 - sources dir name
+	# $3 - marker file name
+	# $4 - log file name
+
+	_function_result=0
+
+	[[ ! -f $SRCS_DIR/$2/configure && ! -f $3 ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# bootstrapping..."
+		}
+		[[ ! -f $SRCS_DIR/$2/.bootstrap && ! -f $SRCS_DIR/$2/bootstrap && ! -f $SRCS_DIR/$2/autogen.sh ]] && {
+			cp $DATA_TOOLS_DIR/bootstrap $SRCS_DIR/$2/ > $4 2>&1
+			_function_result=$?
+			[[ $_function_result != 0 ]] && {
+				echo
+				echo "bootstrap copy error. terminate."
+				return $_function_result
+			}
+		}
+		if [[ -f .bootstrap ]]; then
+			(cd $SRCS_DIR/$2 && ./.bootstrap > $4 2>&1)
+		elif [[ -f ./bootstrap ]]; then
+			(cd $SRCS_DIR/$2 && ./bootstrap > $4 2>&1)
+			_function_result=$?
+		elif [[ -f ./autogen.sh ]]; then
+			(cd $SRCS_DIR/$2 && ./autogen.sh > $4 2>&1)
+			_function_result=$?
+		else
+			echo "can not bootstrapping. terminate."
+			_function_result=1
+		fi
+
+		_function_result=$?
+
+		[[ $_function_result != 0 ]] && {
+			echo
+			echo "bootstrapping error. terminate."
+			return $_function_result
+		} || {
+			[[ $SHOW_ALL_STEPS == yes ]] && echo " done"
+			touch $3
+		}
+
+		return $_function_result
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# configure
+function func_configure {
+	# $1 - (meta)package name
+	# $2 - sources dir name
+	# $3 - build dir name
+	# $4 - flags
+	# $5 - path prefix
+	# $6 - marker file name
+	# $7 - dump file name
+	# $8 - log file name
+
+	[[ ! -f $6 ]] && {
+		[[ -n $5 ]] && {
+			local _configure_cmd=$( func_absolute_to_relative $BUILDS_DIR/$2 $SRCS_DIR/$2 )/$5/configure
+		} || {
+			local _configure_cmd=$( func_absolute_to_relative $BUILDS_DIR/$2 $SRCS_DIR/$2 )/configure
+		}
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# configure..."
+		}
+
+		[[ $DUMP_COMMANDS == yes ]] && {
+			echo "${_configure_cmd} ${4}" > $7
+		}
+
+		(cd $BUILDS_DIR/$3 && eval ${_configure_cmd} ${4} > $8 2>&1)
+		_function_result=$?
+
+		[[ $_function_result == 0 ]] && {
+			[[ $SHOW_ALL_STEPS == yes ]] && echo "done"
+			touch $6
+			return $_function_result
+		} || {
+			[[ $SHOW_ALL_STEPS == yes ]] && echo "error!"
+			return $_function_result
+		}
+	} || {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# configured"
+		}
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# make
+function func_make {
+	# $1 - (meta)package name
+	# $2 - command line
+	# $3 - marker file name
+	# $4 - dump file name
+	# $5 - log file name
+	# $6 - operation text
+	# $7 - operation text if completed
+
+	_function_result=0
+
+	[[ -z $3 || ! -f $3 ]] && {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# $6"
+		}
+		[[ $DUMP_COMMANDS == yes ]] && echo "$2" > $4
+		eval ${2} > ${5} 2>&1
+		_function_result=$?
+		[[ $_function_result == 0 ]] && {
+			[[ -n $3 ]] && touch $3
+			[[ $SHOW_ALL_STEPS == yes ]] && echo "done."
+		} || {
+			[[ $SHOW_ALL_STEPS == yes ]] && echo "error!"
+		}
+		return $_function_result
+	} || {
+		[[ $SHOW_ALL_STEPS == yes ]] && {
+			printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# $7"
+		}
+	}
+
+	return $_function_result
+}
+
+# **************************************************************************
+
+# processing (meta)package
+function func_processing {
+   # $1 - (meta)package name
+   # $2 - is mingw building
+   # $3 - operation (install|uninstall|clean|distclean)
+   # $4 - show package name (yes|no)
+   # $5 - mode (--download|--download-unpack|--trace)
+
+   if [[ ! -f $1 ]]; then
+      echo "package \"$1\" is not exists. terminate."; exit 1
+   fi
+
+   if [[ $1 == *mingw* || $2 == yes ]]
+      then local _is_mingw_build=yes
+      else local _is_mingw_build=no
+   fi
+
+   if [[ $4 == yes ]]; then printf "%s %*s%s\n" $(date +%T) $TAB_LEVEL "" $1; fi
+
+   RULE_TYPE="";RULE_NAME="";SRC_TYPE="";SRC_URL="";SRC_DIR="";BUILD_DIR=""
+   DEPENDENCIES=();DESCRIPTION="";APPLYING_PATCHES=();RUN_BEFORE_CONFIGURE=()
+   RUN_CONFIGURE="";CONFIGURE_PATH="";CONFIGURE_FLAGS=();RUN_BEFORE_MAKE=()
+   MAKEFILE_NAME="";RUN_MAKE="";MAKE_FLAGS=();RUN_BEFORE_MAKE_INSTALL=()
+   RUN_MAKE_INSTALL="";MAKE_INSTALL_FLAGS=();RUN_AFTER_MAKE_INSTALL=()
+   RUN_MAKE_UNINSTALL="";MAKE_UNINSTALL_FLAGS=();RUN_MAKE_CLEAN=""
+   MAKE_CLEAN_FLAGS=();RUN_MAKE_DISTCLEAN="";MAKE_DISTCLEAN_FLAGS=()
+   CREATE_ARCHIVE="";EXCLUDED_FROM_ARCHIVE="";ARCHIVE_NAME=""
+
+   func_set_pkg_env "$1"
+   . $1
+
+   local _pack_type=$RULE_TYPE
+   local _pack_name=$RULE_NAME
+   local _create_archive=$CREATE_ARCHIVE
+   local _excluded_patterns="$EXCLUDED_FROM_ARCHIVE"
+
+   if [[ $3 == install && $[ $USE_HOST_COMPILER == yes || $_is_mingw_build == yes ] == 1 ]]
+      then local _dependencies=( ${DEPENDENCIES[@]} )
+      else local _dependencies=( $DEFAULT_MINGW_VERSION ${DEPENDENCIES[@]} )
+   fi
+
+   # (meta)package info files
+   _package_files=files.list
+   _package_deps=deps.list
+
+   # archiving vars
+   local _compressed_marker_filename=$DATA_MARKERS_DIR/$_pack_name-marker-compressed
+   local _compress_log_filename=$LOGS_DIR/$_pack_name/compress.log
+   local _archive_filename=$PACKAGES_DIR/$ARCHIVE_NAME.$ARCHIVE_TYPE
+
+   if [[ $_pack_type == package ]]; then
+      local _lib_ext=$SRC_TYPE
+      local _lib_url="$SRC_URL"
+      local _run_configure=$RUN_CONFIGURE
+      local _applying_patches=( "${APPLYING_PATCHES[@]}" )
+      local _execute_before_configure=( "${RUN_BEFORE_CONFIGURE[@]}" )
+      local _configure_prefix="$CONFIGURE_PATH"
+      local _run_make=$RUN_MAKE
+      local _execute_before_make=( "${RUN_BEFORE_MAKE[@]}" )
+      local _run_make_install=$RUN_MAKE_INSTALL
+      local _execute_before_make_install=( "${RUN_BEFORE_MAKE_INSTALL[@]}" )
+      local _execute_after_make_install=( "${RUN_AFTER_MAKE_INSTALL[@]}" )
+      local _run_make_uninstall=$RUN_MAKE_UNINSTALL
+      local _run_make_clean=$RUN_MAKE_CLEAN
+      local _run_make_distclean=$RUN_MAKE_DISTCLEAN
+      # configure
+      if [[ -n $(echo "${CONFIGURE_FLAGS[@]}" \
+         | grep -oE '(--disable-shared|--disable-static|--enable-shared|--enable-static)') ]]
+         then local _configure_flags=( "${CONFIGURE_FLAGS[@]}" );
+         else local _configure_flags=( "${CONFIGURE_FLAGS[@]}" "$LINK_TYPE" )
+      fi
+      local _configure_flags_string="${_configure_flags[@]}"
+      # make
+      local _make_base_cmd="make -j${BUILD_JOBS} -C$BUILDS_DIR/$_pack_name -f ${MAKEFILE_NAME}"
+      local _make_flags_string="${MAKE_FLAGS[@]}"
+      local _make_cmd="${_make_base_cmd} ${_make_flags_string}"
+      # make install
+      local _make_install_flags_string="${MAKE_INSTALL_FLAGS[@]}"
+      local _make_install_cmd="$_make_base_cmd ${_make_install_flags_string}"
+      # make uninstall
+      local _make_uninstall_flags_string="${MAKE_UNINSTALL_FLAGS[@]}"
+      local _make_uninstall_cmd="$_make_base_cmd ${_make_uninstall_flags_string}"
+      # make clean
+      local _make_clean_flags_string="${MAKE_CLEAN_FLAGS[@]}"
+      local _make_clean_cmd="$_make_base_cmd ${_make_clean_flags_string}"
+      # make distclean
+      local _make_distclean_flags_string="${MAKE_DISTCLEAN_FLAGS[@]}"
+      local _make_distclean_cmd="$_make_base_cmd ${_make_distclean_flags_string}"
+   elif [[ $_pack_type == metapackage ]]; then
+      local _final_commands=( "${FINAL_COMMANDS[@]}" )
+      local _rule_beg_process_marker_filename=/tmp/$_pack_name-marker-metapackage_start
+      local _rule_end_process_marker_filename=/tmp/$_pack_name-marker-metapackage_end
+      mkdir -p $LOGS_DIR/$_pack_name
+      if [[ $_create_archive == yes && ! -f $_compressed_marker_filename ]]; then
+         local _before_process_rule_dump_filename=/tmp/dump_before-$_pack_name.marker
+         local _diff_process_rule_dump_filename=/tmp/dump_diff-$_pack_name.marker
+         if [[ ! -f $_before_process_rule_dump_filename ]]; then touch $_before_process_rule_dump_filename; fi
+         if [[ ! -f $_rule_beg_process_marker_filename ]]; then touch $_rule_beg_process_marker_filename; fi
+      fi
+   else
+      echo "package type \"$_pack_type\" error. terminate."; exit 1
+   fi
+
+   # references filename
+   local _refs_file=$DATA_MARKERS_DIR/$BUILD_DIR.refs
+   # sources+build+logs directory names
+   local _src_dir=$SRC_DIR
+   local _build_dir=$BUILD_DIR
+   local _installed_files_filename=/tmp/$_build_dir-files-list
+   local _installed_files_list=$DATA_MARKERS_DIR/$_build_dir-files-list
+   # download
+   local _download_marker_filename=$DATA_MARKERS_DIR/$_src_dir-marker-download
+   local _download_url_filename=$DATA_MARKERS_DIR/$_src_dir-url-download
+   local _download_log_filename=$LOGS_DIR/$_build_dir/download.log
+   # uncompress
+   local _uncompress_marker_filename=$DATA_MARKERS_DIR/$_src_dir-marker-uncompress
+   local _uncompress_log_filename=$LOGS_DIR/$_build_dir/uncompress.log
+   # bootstrapping
+   local _bootstrap_marker_filename=$DATA_MARKERS_DIR/$_src_dir-marker-bootstrap
+   local _bootstrap_log_filename=$LOGS_DIR/$_build_dir/bootstrap.log
+   # configure
+   local _configure_marker_filename=$DATA_MARKERS_DIR/$_build_dir-marker-configure
+   local _configure_dump_filename=$LOGS_DIR/$_build_dir/configure.dump
+   local _configure_log_filename=$LOGS_DIR/$_build_dir/configure.log
+   local _configure_flags_filename=$DATA_MARKERS_DIR/$_build_dir-flags-configure
+   # make
+   local _make_marker_filename=$DATA_MARKERS_DIR/$_build_dir-marker-make
+   local _make_dump_filename=$LOGS_DIR/$_build_dir/make.dump
+   local _make_log_filename=$LOGS_DIR/$_build_dir/make.log
+   local _make_flags_filename=$DATA_MARKERS_DIR/$_build_dir-flags-make
+   # make install
+   local _make_install_marker_filename=$DATA_MARKERS_DIR/$_build_dir-marker-install
+   local _make_install_dump_filename=$LOGS_DIR/$_build_dir/install.dump
+   local _make_install_log_filename=$LOGS_DIR/$_build_dir/install.log
+   local _make_install_flags_filename=$DATA_MARKERS_DIR/$_build_dir-flags-make_install
+   # make uninstall
+   local _make_uninstall_marker_filename=$DATA_MARKERS_DIR/$_build_dir-marker-uninstall
+   local _make_uninstall_dump_filename=$LOGS_DIR/$_build_dir/uninstall.dump
+   local _make_uninstall_log_filename=$LOGS_DIR/$_build_dir/uninstall.log
+   local _make_uninstall_flags_filename=$DATA_MARKERS_DIR/$_build_dir-flags-make_uninstall
+   # make clean
+   local _make_clean_marker_filename=$DATA_MARKERS_DIR/$_build_dir-marker-clean
+   local _make_clean_dump_filename=$LOGS_DIR/$_build_dir/clean.dump
+   local _make_clean_log_filename=$LOGS_DIR/$_build_dir/clean.log
+   local _make_clean_flags_filename=$DATA_MARKERS_DIR/$_build_dir-flags-make_clean
+   # make distclean
+   local _make_distclean_marker_filename=$DATA_MARKERS_DIR/$_build_dir-marker-distclean
+   local _make_distclean_dump_filename=$LOGS_DIR/$_build_dir/distclean.dump
+   local _make_distclean_log_filename=$LOGS_DIR/$_build_dir/distclean.log
+   local _make_distclean_flags_filename=$DATA_MARKERS_DIR/$_build_dir-flags-make_distclean
+   # dumps filenames for create archives for packages
+   local _dump_filename_before_install=$DATA_MARKERS_DIR/$_build_dir-marker-before_install
+
+   if [[ $3 == install ]]; then
+      # iterate over dependencies
+      for it in ${_dependencies[@]}; do
+         local _current=$it
+         ((TAB_LEVEL+=TAB_STOP))
+         func_processing $_current $_is_mingw_build $3 yes $5
+         ((TAB_LEVEL-=TAB_STOP))
+         if [[ $5 != --trace ]]; then
+            echo $_pack_name >> $DATA_MARKERS_DIR/$_current.refs
+            cp -f $DATA_MARKERS_DIR/$_current.refs $DATA_MARKERS_DIR/$_current.refs.tmp
+            cat $DATA_MARKERS_DIR/$_current.refs.tmp | awk '! a[$0]++' > $DATA_MARKERS_DIR/$_current.refs
+            rm -f $DATA_MARKERS_DIR/$_current.refs.tmp
+            #sort -u $DATA_MARKERS_DIR/$_current.refs -o $DATA_MARKERS_DIR/$_current.refs
+         fi
+      done
+
+      # if in trace mode, then iterate over dependencies
+      if [[ $5 == --trace ]]; then return 0; fi
+
+      # if package type is 'package'
+      if [[ $_pack_type == package ]]; then
+         # make package dirs
+         mkdir -p $SRCS_DIR/$_src_dir $BUILDS_DIR/$_build_dir $LOGS_DIR/$_build_dir
+
+         # check if URL changed
+         if [[ -f $_download_url_filename ]]; then
+            $(echo "${_lib_url}" | cmp $_download_url_filename >/dev/null)
+            _function_result=$?
+            if [[ $_function_result != 0 ]]; then
+               if [[ $SHOW_ALL_STEPS == yes && $[ $_run_make_uninstall == yes || $_run_make_distclean == yes ] == 1 ]]; then
+                  printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# URL of sources changed. process uninstall & distclean..."
+               fi
+               ((TAB_LEVEL+=TAB_STOP))
+               func_processing $_pack_name $_is_mingw_build uninstall no $5
+               func_processing $_pack_name $_is_mingw_build distclean no $5
+               ((TAB_LEVEL-=TAB_STOP))
+
+               rm -rf \
+                  $SRCS_DIR/$_src_dir
+               rm -f \
+                  $_download_url_filename \
+                  $_download_marker_filename \
+                  $_uncompress_marker_filename
+            fi
+         fi
+
+         # download
+         func_download \
+            $_src_dir \
+            $_lib_ext \
+            "$_lib_url" \
+            $_download_marker_filename \
+            $_download_url_filename \
+            $_download_log_filename
+         if [[ $SHOW_LOG_ON_DOWNLOAD_ERROR == yes && $_function_result != 0 ]]; then
+            $VIEWVER_NAME $_download_log_filename; exit $_function_result
+         fi
+         # if download mode
+         if [[ $5 == --download ]]; then return 0; fi
+
+         # uncompress
+         if [[ $_lib_ext != svn && $_lib_ext != hg && $_lib_ext != git && $_lib_ext != cvs ]]; then
+            func_uncompress $_pack_name $_lib_ext $_uncompress_marker_filename $_uncompress_log_filename
+            if [[ $SHOW_LOG_ON_UNPACK_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_uncompress_log_filename; exit $_function_result
+            fi
+         fi
+         # if download-unpack mode
+         if [[ $5 == --download-unpack ]]; then return 0; fi
+
+         # apply patches
+         if [[ ${#_applying_patches[@]} > 0 ]]; then
+            func_apply_patches $_pack_name _applying_patches[@]
+            if [[ $SHOW_LOG_ON_PATCH_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $LOGS_DIR/$_pack_name/patch-$_patch_index.log; exit $_function_result
+            fi
+         fi
+
+         # create marker before install
+         if [[ ! -f $_make_install_marker_filename && ! -f $_dump_filename_before_install ]]; then
+            touch $_dump_filename_before_install
+         fi
+
+         # execute before configure
+         if [[ ${#_execute_before_configure[@]} > 0 ]]; then
+            func_execute $_pack_name "execute" "exec_before_configure" _execute_before_configure[@]
+            if [[ $SHOW_LOG_ON_EXEC_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $LOGS_DIR/$_pack_name/exec_before_configure-$_cmd_index.log; exit $_function_result
+            fi
+         fi
+
+         # check configure flags
+         # if previously configure's flags exists, then compare it's with current flags
+         if [[ -f $_configure_flags_filename ]]; then
+            # if flags are not equal, then rerun configure with new flags.
+            # also, need uninstall+distclean this package and remove all it's flags.
+            if [[ $(cat $_configure_flags_filename) != $_configure_flags_string ]]; then
+               # configure flags changed. process uninstall & distclean.
+               if [[ $_run_make_uninstall == yes || $_run_make_distclean == yes ]]; then
+                  if [[ -f $_make_marker_filename && -f $_make_install_marker_filename ]]; then
+                     if [[ $SHOW_ALL_STEPS == yes ]]; then
+                        printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# \"configure\" flags changed. process uninstall & distclean..."
+                     fi
+                     ((TAB_LEVEL+=TAB_STOP))
+                     func_processing $_pack_name $_is_mingw_build uninstall no $5
+                     func_processing $_pack_name $_is_mingw_build distclean no $5
+                     ((TAB_LEVEL-=TAB_STOP))
+                     # recreate marker before install
+                     if [[ ! -f $_make_install_marker_filename && ! -f $_dump_filename_before_install ]]; then
+                        touch $_dump_filename_before_install
+                     fi
+                  elif [[ -f $_make_marker_filename ]]; then
+                     if [[ $SHOW_ALL_STEPS == yes ]]; then
+                        printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# \"configure\" flags changed. process distclean..."
+                     fi
+                     ((TAB_LEVEL+=TAB_STOP))
+                     func_processing $_pack_name $_is_mingw_build distclean no $5
+                     ((TAB_LEVEL-=TAB_STOP))
+                  fi
+               fi
+            fi
+         fi
+         # configure
+         if [[ $_run_configure == yes ]]; then
+            # check in configure exists
+            func_generate_configure \
+               $_pack_name \
+               $_src_dir \
+               $_bootstrap_marker_filename \
+               $_bootstrap_log_filename
+            if [[ $SHOW_LOG_ON_CONFIGURE_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_bootstrap_log_filename; exit $_function_result
+            fi
+
+            echo "${_configure_flags_string}" > ${_configure_flags_filename}
+            func_configure \
+               $_pack_name \
+               $_src_dir \
+               $_build_dir \
+               "$_configure_flags_string" \
+               "$_configure_prefix" \
+               $_configure_marker_filename \
+               $_configure_dump_filename \
+               $_configure_log_filename
+            if [[ $SHOW_LOG_ON_CONFIGURE_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_configure_log_filename; exit $_function_result
+            fi
+
+            rm -f \
+               $_make_distclean_marker_filename
+         fi
+
+         # execute before make
+         if [[ ${#_execute_before_make[@]} > 0 ]]; then
+            func_execute $_pack_name "execute" "exec_before_make" _execute_before_make[@]
+            if [[ $SHOW_LOG_ON_EXEC_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $LOGS_DIR/$_pack_name/exec_before_make-$_cmd_index.log; exit $_function_result
+            fi
+         fi
+
+         # check make flags
+         if [[ $_run_make == yes && -f $_make_marker_filename ]]; then
+            # if flags are is not equal, then uninstall+clean this
+            # package and remove all it's stages flags
+            if [[ $(cat $_make_flags_filename) != $_make_flags_string ]]; then
+               if [[ $SHOW_ALL_STEPS == yes ]]; then
+                  printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# \"make\" flags changed. process uninstall & clean..."
+               fi
+               ((TAB_LEVEL+=TAB_STOP))
+               func_processing $_pack_name $_is_mingw_build uninstall no $5
+               func_processing $_pack_name $_is_mingw_build clean no $5
+               ((TAB_LEVEL-=TAB_STOP))
+               # recreate marker before install
+               if [[ ! -f $_make_install_marker_filename && ! -f $_dump_filename_before_install ]]; then
+                  touch $_dump_filename_before_install
+               fi
+            fi
+         fi
+         # make
+         if [[ $_run_make == yes && -f $_make_marker_filename ]]; then
+            if [[ $SHOW_ALL_STEPS == yes ]]; then
+               printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# built"
+            fi
+         elif [[ $_run_make == yes ]]; then
+            echo "${_make_flags_string}" > $_make_flags_filename
+            func_make \
+               $_pack_name \
+               "$_make_cmd" \
+               $_make_marker_filename \
+               $_make_dump_filename \
+               $_make_log_filename \
+               "building..." \
+               "built"
+            if [[ $SHOW_LOG_ON_MAKE_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_make_log_filename; exit $_function_result
+            fi
+
+            rm -f \
+               $_make_clean_marker_filename
+         fi
+
+         # execute before make install
+         if [[ ${#_execute_before_make_install[@]} > 0 ]]; then
+            func_execute $_pack_name "execute" "exec_before_make_install" _execute_before_make_install[@]
+            if [[ $SHOW_LOG_ON_EXEC_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $LOGS_DIR/$_pack_name/exec_before_make_install-$_cmd_index.log; exit $_function_result
+            fi
+         fi
+
+         # check make install flags
+         if [[ $_run_make_install == yes && -f $_make_install_marker_filename ]]; then
+            # if flags are is not equal, then rerun configure with new flags
+            # also, need uninstall this package and remove all it's stages flags
+            if [[ $(cat $_make_install_flags_filename) != $_make_install_flags_string ]]; then
+               if [[ $SHOW_ALL_STEPS == yes ]]; then
+                  printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# \"make install\" flags changed. process uninstall & clean..."
+               fi
+               ((TAB_LEVEL+=TAB_STOP))
+               func_processing $_pack_name $_is_mingw_build uninstall no $5
+               func_processing $_pack_name $_is_mingw_build clean no $5
+               ((TAB_LEVEL-=TAB_STOP))
+               # recreate marker before install
+               if [[ ! -f $_make_install_marker_filename && ! -f $_dump_filename_before_install ]]; then
+                  touch $_dump_filename_before_install
+               fi
+               func_make \
+                  $_pack_name \
+                  "$_make_cmd" \
+                  $_make_marker_filename \
+                  $_make_dump_filename \
+                  $_make_log_filename \
+                  "building..." \
+                  "built"
+               if [[ $SHOW_LOG_ON_MAKE_ERROR == yes && $_function_result != 0 ]]; then
+                  $VIEWVER_NAME $_make_log_filename; exit $_function_result
+               fi
+
+               rm -f $_compressed_marker_filename $_archive_filename
+            fi
+         fi
+
+         # make install
+         if [[ $_run_make_install == yes && ! -f $_make_install_marker_filename ]]; then
+            func_make \
+               $_pack_name \
+               "$_make_install_cmd" \
+               $_make_install_marker_filename \
+               $_make_install_dump_filename \
+               $_make_install_log_filename \
+               "installing..." \
+               "installed"
+            if [[ $SHOW_LOG_ON_INSTALL_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_make_install_log_filename; exit $_function_result
+            fi
+
+            rm -f \
+               $_make_uninstall_marker_filename
+
+            echo "${_make_install_flags_string}" > $_make_install_flags_filename
+
+            echo "$_pack_name" >> $INSTALLED_PACKAGES_FILENAME
+            sort -u $INSTALLED_PACKAGES_FILENAME -o $INSTALLED_PACKAGES_FILENAME
+         elif [[ $_run_make_install == yes && -f $_make_install_marker_filename ]]; then
+            if [[ $SHOW_ALL_STEPS == yes ]]; then
+               printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# installed"
+            fi
+         fi
+
+         # execute after make install
+         if [[ ${#_execute_after_make_install[@]} > 0 ]]; then
+            func_execute $_pack_name "execute" "exec_after_make_install" _execute_after_make_install[@]
+            if [[ $SHOW_LOG_ON_EXEC_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $LOGS_DIR/$_pack_name/exec_after_make_install-$_cmd_index.log; exit $_function_result
+            fi
+         fi
+
+         if [[ -f $_dump_filename_before_install ]]; then
+            # create list of installed files
+            local _prev_dir=$PWD
+            cd $PREFIX_DIR
+            find . -type f -newer $_dump_filename_before_install \
+               | sed 's|./||' \
+               | sort > $_installed_files_filename
+            cp -f $_installed_files_filename $_installed_files_list >/dev/null 2>&1
+            if [[ $? != 0 ]]; then echo "internal error in line $LINENO. terminate."; exit 1; fi
+            cd $_prev_dir
+         fi
+
+         # create archive
+         if [[ $CREATE_ARCHIVES == yes && $_create_archive == yes && ! -f $_compressed_marker_filename ]]; then
+            if [[ $SHOW_ALL_STEPS == yes ]]; then
+               printf "%s %*s%s%s" "$(date +%T)" $TAB_LEVEL "" "# create package..."
+            fi
+            # create full list of files after install
+            local _prev_dir=$PWD
+            cd $PREFIX_DIR
+            func_create_package \
+               $_pack_name \
+               $_pack_type \
+               $_lib_url \
+               "$_configure_flags_string" \
+               "$_make_flags_string" \
+               "$_make_install_flags_string" \
+               $_archive_filename \
+               $_installed_files_filename \
+               $_package_files \
+               _dependencies[@] \
+               $_package_deps \
+               "$_excluded_patterns" \
+               $_compress_log_filename \
+               $_compressed_marker_filename
+
+            if [[ $_function_result != 0 ]]; then
+               rm -f $_archive_filename
+            else
+               rm -f $_dump_filename_before_install
+            fi
+            if [[ $SHOW_LOG_ON_COMPRESS_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_compress_log_filename; exit $_function_result
+            fi
+
+            cd $_prev_dir
+         elif [[ $CREATE_ARCHIVES == yes && $_create_archive == yes && -f $_compressed_marker_filename ]]; then
+            if [[ $SHOW_ALL_STEPS == yes ]]; then
+               printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# packed"
+            fi
+         fi
+      elif [[ $_pack_type == metapackage ]]; then
+         # check modes
+         if [[ $5 == --download || $5 == --download-unpack || $5 == --trace ]]; then return 0; fi
+
+         # check if pressed final commands
+         if [[ ${#_final_commands[@]} > 0 ]]; then
+            mkdir -p $SRCS_DIR/$_pack_name $BUILDS_DIR/$_pack_name $LOGS_DIR/$_pack_name
+            func_execute $_pack_name "execute" "exec_final_commands" _final_commands[@]
+            if [[ $SHOW_LOG_ON_EXEC_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $LOGS_DIR/$_pack_name/exec_final_commands-$_cmd_index.log; exit $_function_result
+            fi
+         fi
+
+         if [[ $CREATE_ARCHIVES == yes && $_create_archive == yes && ! -f $_compressed_marker_filename ]]; then
+            if [[ -f $_rule_beg_process_marker_filename && ! -f $_rule_end_process_marker_filename ]]; then
+               local _prev_dir=$PWD
+               cd $PREFIX_DIR
+               # create full list of files after install
+               find . -type f -newer $_before_process_rule_dump_filename \
+                  | sed 's|./||' \
+                  | sort > $_diff_process_rule_dump_filename
+               cp -f $_diff_process_rule_dump_filename $_installed_files_list
+               touch $_rule_end_process_marker_filename
+            fi
+
+            # create full list of files after process package
+            func_create_package \
+               $_pack_name \
+               $_pack_type \
+               "" \
+               "" \
+               "" \
+               "" \
+               $_archive_filename \
+               $_diff_process_rule_dump_filename \
+               $_package_files \
+               _dependencies[@] \
+               $_package_deps \
+               "$_excluded_patterns" \
+               $_compress_log_filename \
+               $_compressed_marker_filename
+
+            if [[ $_function_result == 0 ]]; then
+               rm -f $_before_process_rule_dump_filename \
+                  $_diff_process_rule_dump_filename
+            fi
+            if [[ $SHOW_LOG_ON_COMPRESS_ERROR == yes && $_function_result != 0 ]]; then
+               $VIEWVER_NAME $_compress_log_filename; exit $_function_result
+            fi
+
+            rm -f $_rule_beg_process_marker_filename \
+               $_rule_end_process_marker_filename
+
+            cd $_prev_dir
+         fi
+      fi
+   elif [[ $3 == uninstall ]]; then
+      # uninstalling
+      if [[ $_run_make_uninstall == yes && -f $_make_install_marker_filename ]]; then
+         # iterate over dependencies
+         local _deps=( $(< $_refs_file) )
+         for it in ${_deps[@]}; do
+            local _cur=$it
+            ((TAB_LEVEL+=TAB_STOP))
+            func_processing $_cur $_is_mingw_build $3 $4 $5
+            ((TAB_LEVEL-=TAB_STOP))
+         done
+         printf "%s %*s%s\n" "$(date +%T)" $TAB_LEVEL "" "# $_pack_name"
+#          func_make \
+#             $_pack_name \
+#             "$_make_uninstall_cmd" \
+#             $_make_uninstall_marker_filename \
+#             $_make_uninstall_dump_filename \
+#             $_make_uninstall_log_filename \
+#             "uninstalling..." \
+#             "uninstalled"
+#          if [[ $SHOW_LOG_ON_INSTALL_ERROR == yes && $_function_result != 0 ]]; then
+#             $VIEWVER_NAME $_make_uninstall_log_filename; exit $_function_result
+#          fi
+#
+#          rm -f \
+#             $_make_install_marker_filename \
+#             $_compressed_marker_filename \
+#             "$DATA_MARKERS_DIR/$_pack_name-marker-exec_after_make_install*"
+#
+#          echo "${_make_uninstall_flags_string}" > $_make_uninstall_flags_filename
+#          sed /$_pack_name/d -i $INSTALLED_PACKAGES_FILENAME
+      fi
+   elif [[ $3 == clean ]]; then
+      # cleaning
+      if [[ $_run_make_clean == yes && -f $_make_marker_filename ]]; then
+         func_make \
+            $_pack_name \
+            "$_make_clean_cmd" \
+            $_make_clean_marker_filename \
+            $_make_clean_dump_filename \
+            $_make_clean_log_filename \
+            "cleaning..." \
+            "cleaned"
+         if [[ $SHOW_LOG_ON_CLEAN_ERROR == yes && $_function_result != 0 ]]; then
+            $VIEWVER_NAME $_make_clean_log_filename; exit $_function_result
+         fi
+
+         rm -f \
+            $_make_marker_filename
+
+         echo "${_make_clean_flags_string}" > $_make_clean_flags_filename
+      fi
+   elif [[ $3 == distclean ]]; then
+      # distcleaning
+      if [[ $_run_make_distclean == yes && -f $_configure_marker_filename ]]; then
+         func_make \
+            $_pack_name \
+            "$_make_distclean_cmd" \
+            $_make_distclean_marker_filename \
+            $_make_distclean_dump_filename \
+            $_make_distclean_log_filename \
+            "distcleaning..." \
+            "cleaned"
+         if [[ $SHOW_LOG_ON_CLEAN_ERROR == yes && $_function_result != 0 ]]; then
+            $VIEWVER_NAME $_make_distclean_log_filename; exit $_function_result
+         fi
+
+         rm -f \
+            $_configure_marker_filename \
+            $_make_marker_filename
+
+         echo "${_make_distclean_flags_string}" > $_make_distclean_flags_filename
+      fi
+   fi
+}
+
+# **************************************************************************
+
+# create the (meta)package
+function func_create_package {
+	# $1 - (meta)package name
+	# $2 - (meta)package type
+	# $3 - sources url
+	# $4 - "configure" flags
+	# $5 - "make" flags
+	# $6 - "make install" flags
+	# $7 - archive name
+	# $8 - diff filename
+	# $9 - files list filename
+	# $10 - dependencies list
+	# $11 - dependencies list filename
+	# $12 - excluded patterns
+	# $13 - log filename
+	# $14 - marker filename
+
+	# remove the previous archive file
+	rm -f ${7} >/dev/null 2>&1
+
+	declare -a _deps=( "${!10}" )
+	local _command_str=""
+
+	# create dependencies.list
+	[[ -n ${_deps[@]} ]] && {
+		printf "%s\n" "${_deps[@]}" | sort > "${11}"
+	} || {
+		touch "${11}"
+	}
+
+	# process excluded patterns
+	[[ -n "${12}" ]] && {
+		cat "${8}" | grep -vE $(echo ${12} | sed -r 's/;/|/g;s/\./\\./g;s/\*//g;s/^/(/;s/$/)$/') > "${8}.tmp"
+		[[ $? != 0 ]] && {
+			_function_result=$?
+			return $_function_result
+		}
+		rm -f "${8}"; mv "${8}.tmp" "${8}"
+	}
+
+	# create files.list
+	cp ${8} ${9}
+	[[ $? != 0 ]] && {
+		echo "internal error in line $LINENO. terminate."
+		exit 1
+	}
+
+	# create (meta)package.info
+	local _pack=pack.info
+	local _pack_info=$PREFIX_DIR/$_pack
+	echo "name: ${1}" > $_pack_info
+	echo "type: ${2}" >> $_pack_info
+	[[ $2 == package ]] && {
+		echo "version: $(echo ${1} | sed 's/[^0-9.]*\([0-9.]*\).*/\1/')" >> $_pack_info
+		echo "url: ${3}" >> $_pack_info
+		echo "configure_flags: ${4}" >> $_pack_info
+		echo "make_flags: ${5}" >> $_pack_info
+		echo "make_install_flags: ${6}" >> $_pack_info
+	}
+	echo "build: mingw-env-$MINGW_ENV_VERSION, $(date +%m.%d.%Y-%X)" >> $_pack_info
+
+	# add the files.list+dependencies.list+package.info into the list of files for compress
+	echo "${9}" >> "${8}"
+	echo "${11}" >> "${8}"
+	echo "$_pack" >> "${8}"
+
+	# compress list of files
+	case $ARCHIVE_TYPE in
+		tgz | tar.gz) _command_str="tar -czf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
+		tbz | tar.bz2) _command_str="tar -cjf ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
+		tar.lzma) _command_str="tar -cf --lzma ${7} -C$PREFIX --dereference --hard-dereference --files-from=${8} > ${13} 2>&1 && touch ${14}" ;;
+		tar.xz) _command_str="tar -cJf ${7} -C$PREFIX --dereference --files-from=${8} > ${13} 2>&1 && touch ${14}";;
+		7z) _command_str="7za a -t7z -mx=9 -mfb=64 -md=64m -ms=on -w$PREFIX ${7} @${8} > ${13} 2>&1 && touch ${14}" ;;
+		zip) _command_str="7za a -tzip -mx=9 -mfb=64 -md=64m -w$PREFIX ${7} @${8} > ${13} 2>&1 && touch ${14}" ;;
+		*) echo "bad archive type \"$ARCHIVE_TYPE\". terminate."; exit 1 ;;
+	esac
+
+	echo "${_command_str}"
+	eval ${_command_str}
+	_function_result=$?
+
+	[[ $_function_result != 0 ]] && {
+		echo "error!"
+		return $_function_result
+	}
+
+	echo "done."
+
+	rm -f "${8}" "${9}" "${11}" "$_pack"
+	cd $_prev_dir
+}
+
 # **************************************************************************
 # **************************************************************************
+# **************************************************************************
+
