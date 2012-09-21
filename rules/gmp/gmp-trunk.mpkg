@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=hg
@@ -49,19 +46,9 @@ SRC_TYPE=hg
 # URL for download sources
 SRC_URL=http://gmplib.org:8000/gmp
 
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
 )
-
-# description of the library
-DESCRIPTION="GMP is a free library for arbitrary precision arithmetic, operating \
-on signed integers, rational numbers, and floating point numbers."
 
 # list of patches separated by space
 APPLYING_PATCHES=(

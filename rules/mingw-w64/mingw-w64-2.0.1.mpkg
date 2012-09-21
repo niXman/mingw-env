@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=.tar.gz
@@ -49,18 +46,9 @@ SRC_TYPE=.tar.gz
 # URL for download sources
 SRC_URL=http://sourceforge.net/projects/mingw-w64/files/mingw-w64/mingw-w64-release/mingw-w64-v2.0.1.tar.gz/download
 
-# sources directory name
-SRC_DIR=mingw-w64-v2.0.1
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
 )
-
-# description of the library
-DESCRIPTION="WIN32/64 API and CRT. Version 2.0.1."
 
 # list of patches separated by space
 APPLYING_PATCHES=(

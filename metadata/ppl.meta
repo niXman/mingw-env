@@ -1,0 +1,7 @@
+# description of the library
+DESCRIPTION="The Parma Polyhedra Library (PPL) provides numerical \
+abstractions especially targeted at applications in the field of \
+analysis and verification of complex systems."
+
+# homepage of the library
+HOMEPAGE="http://bugseng.com/products/ppl"

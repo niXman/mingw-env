@@ -1,0 +1,6 @@
+# description of the library
+DESCRIPTION="This library provides an iconv() implementation, for use on systems \
+which don't have one, or whose implementation cannot convert from/to Unicode."
+
+# homepage of the library
+HOMEPAGE="http://www.gnu.org/software/libiconv/"

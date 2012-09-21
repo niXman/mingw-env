@@ -1,0 +1,5 @@
+# description of the library
+DESCRIPTION="The GNU Binutils are a collection of binary tools. Trunk version."
+
+# homepage of the library
+HOMEPAGE="http://www.gnu.org/software/binutils/"

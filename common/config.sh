@@ -39,8 +39,11 @@
 # you`r prefered version
 DEFAULT_MINGW_VERSION=mingw-4.6.2
 
-# extension for 
+# extension for package rule
 RULES_EXT=mpkg
+
+# extension for package metadata
+METADATA_EXT=meta
 
 # create archives for packages?
 CREATE_ARCHIVES=yes
@@ -64,13 +67,12 @@ BUILD_JOBS=3
 #LINK_TYPE="--disable-static --enable-shared"
 LINK_TYPE="--enable-static --disable-shared"
 
-
 if [[ $IS_WINDOWS_HOST == yes ]]; then
-	. ./config-win.sh
+	source common/config-win
 elif [[ $IS_LINUX_HOST == yes ]]; then
-	. ./config-nix.sh
+	source common/config-nix
 elif [[ $IS_MACOSX_HOST == yes ]]; then
-	. ./config-osx.sh
+	source common/config-osx
 else
 	echo "bad OS name \"$OSTYPE\". terminate."
 	exit 1
