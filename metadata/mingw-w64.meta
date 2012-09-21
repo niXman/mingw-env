@@ -1,0 +1,5 @@
+# description of the library
+DESCRIPTION="WIN32/64 API and CRT."
+
+# homepage of the library
+HOMEPAGE="http://mingw-w64.sourceforge.net/"

@@ -1,0 +1,5 @@
+# description of the library
+DESCRIPTION="Expat is an XML parser library written in C. It is a stream-oriented parser."
+
+# homepage of the library
+HOMEPAGE="http://expat.sourceforge.net/"

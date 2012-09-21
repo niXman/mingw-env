@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=.tar.gz
@@ -49,21 +46,11 @@ SRC_TYPE=.tar.gz
 # URL for download sources
 SRC_URL=http://www.multiprecision.org/mpc/download/mpc-1.0.tar.gz
 
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
    gmp-5.0.4
    mpfr-3.1.0
 )
-
-# description of the library
-DESCRIPTION="Mpc is a C library for the arithmetic of complex \
-numbers with arbitrarily high precision and correct rounding of the result."
 
 # list of patches separated by space
 APPLYING_PATCHES=(
