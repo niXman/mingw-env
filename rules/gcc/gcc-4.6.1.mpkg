@@ -67,11 +67,6 @@ DEPENDENCIES=(
    winpthreads-trunk
 )
 
-# description of the library
-DESCRIPTION="The GNU Compiler Collection of version 4.6.1 includes front \
-ends for C, C++, Objective-C, Fortran, Java, Ada, and Go, as \
-well as libraries for these languages (libstdc++, libgcj,...)."
-
 # list of patches separated by space
 APPLYING_PATCHES=(
 )

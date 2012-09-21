@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: svn, hg, git
 SRC_TYPE=.tar.gz
@@ -49,29 +46,20 @@ SRC_TYPE=.tar.gz
 # URL for download sources
 SRC_URL=http://zlib.net/zlib-1.2.6.tar.gz
 
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
 )
-
-# description of the library
-DESCRIPTION="zlib is a software library used for data compression."
 
 # list of patches separated by space
 APPLYING_PATCHES=(
 )
 
 if [[ $IS_WINDOWS_HOST == yes ]]; then
-   . $RULES_DIR/zlib-1.2.6-win.sh
+   . $RULES_DIR/$PROG_NAME/zlib-1.2.6-win
 elif [[ $IS_LINUX_HOST == yes ]]; then
-   . $RULES_DIR/zlib-1.2.6-nix.sh
+   . $RULES_DIR/$PROG_NAME/zlib-1.2.6-nix
 else
-   . $RULES_DIR/zlib-1.2.6-osx.sh
+   . $RULES_DIR/$PROG_NAME/zlib-1.2.6-osx
 fi
 
 #run "make clean"

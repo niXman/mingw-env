@@ -1,0 +1,6 @@
+# description of the library
+DESCRIPTION="Mpc is a C library for the arithmetic of complex \
+numbers with arbitrarily high precision and correct rounding of the result."
+
+# homepage of the library
+HOMEPAGE="http://www.multiprecision.org/"

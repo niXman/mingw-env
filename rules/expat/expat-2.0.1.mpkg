@@ -39,28 +39,16 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
-SRC_TYPE=.tar.bz2
+SRC_TYPE=.tar.gz
 
 # URL for download sources
-SRC_URL=http://sourceforge.net/projects/expat/files/expat/2.0.1/expat-2.0.1.tar.gz/download
-
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
+SRC_URL=http://download.sourceforge.net/expat/expat-2.0.1.tar.gz
 
 # list of requirements separated by space
 DEPENDENCIES=(
 )
-
-# description of the library
-DESCRIPTION="Expat is an XML parser library written in C. It is a stream-oriented parser."
 
 # list of patches separated by space
 APPLYING_PATCHES=(
@@ -83,7 +71,7 @@ CONFIGURE_FLAGS=(
    CPPFLAGS=\"$COMMON_CPPFLAGS\"
    LDFLAGS=\"$COMMON_LDFLAGS\"
    # other flags
-   --target=$TARGET
+   --host=$TARGET
    --prefix=$PREFIX_DIR
 )
 

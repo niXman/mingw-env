@@ -1,0 +1,6 @@
+# description of the library
+DESCRIPTION="Make is a tool which controls the generation of executables \
+and other non-source files of a program from the program's source files. Trunk version."
+
+# homepage of the library
+HOMEPAGE="http://savannah.gnu.org/projects/make/"

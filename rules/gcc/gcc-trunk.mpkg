@@ -39,21 +39,12 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=svn
 
 # URL for download sources
 SRC_URL=svn://gcc.gnu.org/svn/gcc/trunk
-
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
 
 # list of requirements separated by comma.
 DEPENDENCIES=(
@@ -66,11 +57,6 @@ DEPENDENCIES=(
    mingw-w64-trunk
    winpthreads-trunk
 )
-
-# description of the library
-DESCRIPTION="The GNU Compiler Collection of trunk version includes front \
-ends for C, C++, Objective-C, Fortran, Java, Ada, and Go, as \
-well as libraries for these languages (libstdc++, libgcj,...)."
 
 # list of patches separated by space
 APPLYING_PATCHES=(

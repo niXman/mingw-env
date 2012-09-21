@@ -39,15 +39,9 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=metapackage
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # list of requirements separated by space
 DEPENDENCIES=(
 )
-
-# description of the library
-DESCRIPTION="Embedded python library."
 
 # final commands which will be executed
 FINAL_COMMANDS=(

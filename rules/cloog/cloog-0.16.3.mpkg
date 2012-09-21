@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=.tar.gz
@@ -49,19 +46,10 @@ SRC_TYPE=.tar.gz
 # URL for download sources
 SRC_URL=http://www.bastoul.net/cloog/pages/download/count.php3?url=./cloog-0.16.3.tar.gz
 
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
    gmp-5.0.4
 )
-
-# description of the library
-DESCRIPTION="CLooG is a free software and library to generate code for scanning Z-polyhedra."
 
 # list of patches separated by space
 if [[ $IS_WINDOWS_HOST == yes ]]; then
