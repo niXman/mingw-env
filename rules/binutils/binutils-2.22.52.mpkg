@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=.tar.bz2
@@ -49,20 +46,11 @@ SRC_TYPE=.tar.bz2
 # URL for download sources
 SRC_URL=ftp://sourceware.org/pub/binutils/snapshots/binutils-2.22.52.tar.bz2
 
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
    libiconv-1.14
    #zlib-1.2.6
 )
-
-# description of the library
-DESCRIPTION="The GNU Binutils are a collection of binary tools. Version 2.22.52."
 
 # list of patches separated by space
 APPLYING_PATCHES=(

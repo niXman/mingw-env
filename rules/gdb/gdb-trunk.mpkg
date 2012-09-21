@@ -39,9 +39,6 @@
 # type of the package may be one from (package|metapackage)
 RULE_TYPE=package
 
-# name of the package
-RULE_NAME=$(basename $BASH_SOURCE .sh)
-
 # sources type: .tar.gz, .tar.bz2 e.t.c...
 # if sources get from a repository, choose it`s type: cvs, svn, hg, git
 SRC_TYPE=cvs
@@ -49,23 +46,12 @@ SRC_TYPE=cvs
 # URL for download sources
 SRC_URL=":pserver:anoncvs:anoncvs@sourceware.org:/cvs/src co gdb"
 
-# sources directory name
-SRC_DIR=$RULE_NAME
-
-# build directory name
-BUILD_DIR=$RULE_NAME
-
 # list of requirements separated by space
 DEPENDENCIES=(
    libiconv-1.14
    expat-2.0.1
    python-2.7
 )
-
-# description of the library
-DESCRIPTION="GDB, the GNU Project debugger, allows you to see what is \
-going on 'inside' another program while it executes -- or \
-what another program was doing at the moment it crashed. Trunk version."
 
 # list of patches separated by space
 APPLYING_PATCHES=(

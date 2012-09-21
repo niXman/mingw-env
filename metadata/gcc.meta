@@ -1,0 +1,7 @@
+# description of the library
+DESCRIPTION="The GNU Compiler Collection of version 4.6.2 includes front \
+ends for C, C++, Objective-C, Fortran, Java, Ada, and Go, as \
+well as libraries for these languages (libstdc++, libgcj,...)."
+
+# homepage of the library
+HOMEPAGE="http://gcc.gnu.org/"
