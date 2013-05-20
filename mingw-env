@@ -59,7 +59,7 @@ esac
 
 VIEWVER_NAME=""
 
-[[ $# > 0 && ${@:1} != --setup ]] && {
+[[ $# > 0 && ${@:1} != --install ]] && {
 	[[ -n $MINGW_ENV ]] && {
 		. $MINGW_ENV/common/config.sh
 		func_find_logviewer \
@@ -121,11 +121,11 @@ function func_make_environment {
 # **************************************************************************
 
 # install mingw-env
-function func_mingw_env_setup {
+function func_mingw_env_install {
 	# $1 - path for install too
 
 	[[ ! -f ./mingw-env ]] && {
-		echo "run setup from the mingw-env root directory."
+		echo "run install from the mingw-env root directory."
 		return 1
 	}
 
@@ -158,7 +158,7 @@ function func_mingw_env_setup {
 }
 
 # uninstall mingw-env
-function func_mingw_env_unsetup {
+function func_mingw_env_uninstall {
 	sed /MINGW_ENV/d -i $HOME/.profile
 	rm -fR $MINGW_ENV
 }
@@ -262,8 +262,18 @@ function func_create_common_dirs {
 
 case $1 in
 	--setup)
+		echo "Parameter --setup is excluded from the current version. Use --install instead."
+		exit 1
+	;;
+	
+	--unsetup)
+		echo "Parameter --unsetup is excluded from the current version. Use --uninstall instead."
+		exit 1
+	;;
+	
+	--install)
 		[[ $# != 2 ]] && {
-			echo "usage: mingw-env --setup <path>"
+			echo "usage: mingw-env --install <path>"
 			exit 1
 		}
 
@@ -288,7 +298,7 @@ case $1 in
 		func_make_environment "$PWD" ""
 
 		# installing
-		func_mingw_env_setup $2
+		func_mingw_env_install $2
 		[[ $? != 0 ]] && {
 			echo "error on installig. terminate."
 			exit 1
@@ -298,9 +308,9 @@ case $1 in
 		exit 0
 	;;
 
-	--unsetup)
+	--uninstall)
 		[[ $# != 1 ]] && {
-			echo "usage: mingw-env --unsetup"
+			echo "usage: mingw-env --uninstall"
 			exit 1
 		}
 
@@ -322,7 +332,7 @@ case $1 in
 		func_make_environment $MINGW_ENV ""
 
 		# uninstall
-		func_mingw_env_unsetup
+		func_mingw_env_uninstall
 		[[ $? == 0 ]] && {
 			echo "successfully uninstalled."
 			exit 0
@@ -855,8 +865,8 @@ case $1 in
 		"       mingw-env --help        | display this help and exit" \
 		"" \
 		"mingw-env install/uninstall:" \
-		"  --setup <path>               | install mingw-env in the specified path" \
-		"  --unsetup                    | uninstall the mingw-env" \
+		"  --install <path>               | install mingw-env in the specified path" \
+		"  --uninstall                    | uninstall the mingw-env" \
 		"" \
 		"mingw-env commands:" \
 		"  --version                    | show mingw-env version" \
