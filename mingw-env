@@ -261,16 +261,6 @@ function func_create_common_dirs {
 # **************************************************************************
 
 case $1 in
-	--setup)
-		echo "Parameter --setup is excluded from the current version. Use --install instead."
-		exit 1
-	;;
-	
-	--unsetup)
-		echo "Parameter --unsetup is excluded from the current version. Use --uninstall instead."
-		exit 1
-	;;
-	
 	--install)
 		[[ $# != 2 ]] && {
 			echo "usage: mingw-env --install <path>"
